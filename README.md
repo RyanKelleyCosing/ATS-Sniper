@@ -1,4 +1,4 @@
-# ATS Sniper 🎯
+# ATS Sniper
 
 An automated job-hunting pipeline that scrapes multiple Applicant Tracking Systems (ATS), scores job matches with AI, tailors your resume for top matches, and delivers results straight to your inbox — twice a day.
 
