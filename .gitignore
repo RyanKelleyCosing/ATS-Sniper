@@ -1,0 +1,40 @@
+# Secrets and credentials
+config.json
+
+# State files (user-specific runtime data)
+job_state.json
+job_state_backup.json
+jobs_export.csv
+sniper.log
+
+# Generated outputs (contain PII)
+outputs/
+reports/
+cover_letters/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environment
+venv/
+.venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# Research docs (personal)
+CINCINNATI_EMPLOYERS.md

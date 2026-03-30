@@ -1,0 +1,108 @@
+{
+  "skills_taxonomy": {
+    "ci_cd": {
+      "display_name": "CI/CD & Automation",
+      "keywords": ["azure devops", "yaml pipelines", "ci/cd", "jenkins", "github actions", "gitlab ci", "release management", "deployment automation", "continuous integration", "continuous deployment"],
+      "weight": 1.2
+    },
+    "cloud_platforms": {
+      "display_name": "Cloud Platforms",
+      "keywords": ["azure", "aws", "gcp", "cloud computing", "azure app services", "azure functions", "lambda", "ec2", "azure vm"],
+      "weight": 1.3
+    },
+    "containers": {
+      "display_name": "Containers & Orchestration",
+      "keywords": ["docker", "kubernetes", "k8s", "aks", "eks", "gke", "helm", "container registry", "microservices", "containerization"],
+      "weight": 1.2
+    },
+    "iac": {
+      "display_name": "Infrastructure as Code",
+      "keywords": ["terraform", "bicep", "arm templates", "cloudformation", "pulumi", "ansible", "infrastructure as code"],
+      "weight": 1.1
+    },
+    "monitoring": {
+      "display_name": "Monitoring & Observability",
+      "keywords": ["azure monitor", "application insights", "prometheus", "grafana", "datadog", "splunk", "elk", "log analytics", "kql", "observability"],
+      "weight": 1.0
+    },
+    "scripting": {
+      "display_name": "Scripting & Programming",
+      "keywords": ["python", "powershell", "bash", "shell scripting", "c#", ".net", "go", "golang", "typescript", "javascript"],
+      "weight": 1.0
+    },
+    "databases": {
+      "display_name": "Databases",
+      "keywords": ["sql server", "postgresql", "mysql", "mongodb", "cosmos db", "redis", "database administration", "t-sql"],
+      "weight": 0.8
+    },
+    "security": {
+      "display_name": "Security & Compliance",
+      "keywords": ["devsecops", "security", "compliance", "soc2", "hipaa", "pci", "azure security", "key vault", "secrets management"],
+      "weight": 1.0
+    },
+    "networking": {
+      "display_name": "Networking",
+      "keywords": ["networking", "vpn", "load balancer", "cdn", "dns", "firewall", "vnet", "subnets"],
+      "weight": 0.8
+    },
+    "methodologies": {
+      "display_name": "Methodologies & Practices",
+      "keywords": ["agile", "scrum", "sre", "site reliability", "devops culture", "gitops", "incident management"],
+      "weight": 0.7
+    }
+  },
+  "role_mappings": {
+    "devops": {
+      "primary_skills": ["ci_cd", "containers", "iac", "cloud_platforms"],
+      "secondary_skills": ["monitoring", "scripting", "security"],
+      "template": "resume_devops.md"
+    },
+    "sre": {
+      "primary_skills": ["monitoring", "containers", "cloud_platforms", "scripting"],
+      "secondary_skills": ["ci_cd", "iac", "databases"],
+      "template": "resume_sre.md"
+    },
+    "cloud_engineer": {
+      "primary_skills": ["cloud_platforms", "iac", "networking", "security"],
+      "secondary_skills": ["containers", "monitoring", "scripting"],
+      "template": "resume_cloud.md"
+    },
+    "infrastructure": {
+      "primary_skills": ["iac", "networking", "cloud_platforms", "monitoring"],
+      "secondary_skills": ["containers", "security", "databases"],
+      "template": "resume_infrastructure.md"
+    },
+    "platform_engineer": {
+      "primary_skills": ["containers", "iac", "ci_cd", "cloud_platforms"],
+      "secondary_skills": ["monitoring", "scripting", "security"],
+      "template": "resume_devops.md"
+    }
+  },
+  "accomplishment_tags": {
+    "CICD-001": ["ci_cd", "cloud_platforms"],
+    "CICD-002": ["ci_cd"],
+    "CICD-003": ["ci_cd"],
+    "K8S-001": ["containers", "cloud_platforms"],
+    "MONITOR-001": ["monitoring", "cloud_platforms"],
+    "SRE-001": ["monitoring", "methodologies"],
+    "SRE-002": ["monitoring", "scripting"],
+    "SRE-003": ["monitoring"],
+    "SRE-004": ["containers", "cloud_platforms"],
+    "SRE-005": ["ci_cd", "monitoring"],
+    "CLOUD-001": ["cloud_platforms"],
+    "CLOUD-002": ["cloud_platforms", "scripting"],
+    "CLOUD-003": ["iac", "cloud_platforms"],
+    "CLOUD-004": ["monitoring", "cloud_platforms"],
+    "SEC-001": ["security"],
+    "PYTHON-001": ["scripting"],
+    "AUTO-001": ["scripting", "ci_cd"]
+  },
+  "industry_keywords": {
+    "finance": ["fintech", "banking", "insurance", "trading", "compliance", "pci", "sox"],
+    "healthcare": ["hipaa", "hl7", "fhir", "emr", "ehr", "clinical", "patient"],
+    "retail": ["ecommerce", "supply chain", "inventory", "pos", "fulfillment"],
+    "manufacturing": ["iot", "plc", "scada", "mes", "erp"],
+    "tech": ["saas", "startup", "scale", "growth", "product"]
+  }
+}
+

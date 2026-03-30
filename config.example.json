@@ -1,0 +1,209 @@
+{
+  "serpapi_key": "YOUR_SERPAPI_KEY",
+  "openai_key": "YOUR_OPENAI_API_KEY",
+  "usajobs_api_key": "YOUR_USAJOBS_API_KEY",
+  "usajobs_email": "your_email@example.com",
+  "email": {
+    "smtp_server": "smtp.gmail.com",
+    "smtp_port": 587,
+    "sender_email": "your_sender@gmail.com",
+    "sender_password": "YOUR_GMAIL_APP_PASSWORD",
+    "recipient_email": "your_recipient@example.com",
+    "fallback_recipient": "your_fallback@example.com"
+  },
+  "schedules": {
+    "morning": {
+      "time": "09:30",
+      "description": "Enterprise Hunt - Catches overnight + early morning batch",
+      "query_groups": ["enterprise_workday", "enterprise_consulting", "cincy_regional"]
+    },
+    "afternoon": {
+      "time": "16:30",
+      "description": "Startup Sweep - Catches EOD posts + West Coast morning",
+      "query_groups": ["startup_ats", "niche_boards"]
+    }
+  },
+  "workday_endpoints": {
+    "pg": {
+      "name": "Procter & Gamble",
+      "url": "https://pg.wd5.myworkdayjobs.com/wday/cxs/pg/1000/jobs"
+    },
+    "ge_aerospace": {
+      "name": "GE Aerospace",
+      "url": "https://geaerospace.wd5.myworkdayjobs.com/wday/cxs/geaerospace/GE_ExternalSite/jobs"
+    },
+    "fifth_third": {
+      "name": "Fifth Third Bank",
+      "url": "https://fifththird.wd5.myworkdayjobs.com/wday/cxs/fifththird/53careers/jobs"
+    },
+    "fidelity": {
+      "name": "Fidelity Investments",
+      "url": "https://fmr.wd1.myworkdayjobs.com/wday/cxs/fmr/FidelityCareers/jobs"
+    },
+    "cchmc": {
+      "name": "Cincinnati Childrens Hospital",
+      "url": "https://cincinnatichildrens.wd5.myworkdayjobs.com/wday/cxs/cincinnatichildrens/careersatcincinnatichildrens/jobs"
+    },
+    "gaig": {
+      "name": "Great American Insurance Group",
+      "url": "https://gaig.wd1.myworkdayjobs.com/wday/cxs/gaig/GAIG_External/jobs"
+    },
+    "cvs": {
+      "name": "CVS Health",
+      "url": "https://cvshealth.wd1.myworkdayjobs.com/wday/cxs/cvshealth/CVS_Health_Careers/jobs"
+    },
+    "worldpay": {
+      "name": "Worldpay",
+      "url": "https://worldpay.wd5.myworkdayjobs.com/wday/cxs/worldpay/Worldpay_External_Careers_Site/jobs"
+    },
+    "bon_secours": {
+      "name": "Bon Secours Mercy Health",
+      "url": "https://easyservice.wd5.myworkdayjobs.com/wday/cxs/easyservice/BonSecoursMercyHealthCareers/jobs"
+    },
+    "st_elizabeth": {
+      "name": "St. Elizabeth Healthcare",
+      "url": "https://stelizabeth.wd115.myworkdayjobs.com/wday/cxs/stelizabeth/StElizabethExternalCareerSite/jobs"
+    }
+  },
+  "custom_ats": {
+    "medpace": {
+      "name": "Medpace",
+      "url": "https://careers.medpace.com",
+      "type": "custom",
+      "note": "C#/.NET/Azure roles"
+    },
+    "tql": {
+      "name": "Total Quality Logistics",
+      "url": "https://careers.tql.com",
+      "type": "custom",
+      "note": "Large IT dept"
+    },
+    "cintas": {
+      "name": "Cintas",
+      "url": "https://careers.cintas.com",
+      "type": "custom",
+      "note": "Corporate HQ Cincinnati"
+    },
+    "lcs": {
+      "name": "London Computer Systems",
+      "url": "https://www.lcs.com/careers",
+      "type": "custom",
+      "note": "C#/.NET shop"
+    },
+    "kinetic_vision": {
+      "name": "Kinetic Vision",
+      "url": "https://www.kinetic-vision.com/careers",
+      "type": "custom",
+      "note": "DevOps/Cloud for simulation teams"
+    }
+  },
+  "query_groups": {
+    "startup_ats": {
+      "tier": 2,
+      "label": "HIGH-GROWTH STARTUPS",
+      "sites": ["boards.greenhouse.io", "jobs.lever.co", "apply.workable.com", "jobs.ashbyhq.com"]
+    },
+    "enterprise_workday": {
+      "tier": 1,
+      "label": "ENTERPRISE (Apply within 24 hrs)",
+      "sites": [
+        "pg.wd5.myworkdayjobs.com",
+        "geaerospace.wd5.myworkdayjobs.com",
+        "fifththird.wd5.myworkdayjobs.com",
+        "fmr.wd1.myworkdayjobs.com",
+        "cincinnatichildrens.wd5.myworkdayjobs.com",
+        "gaig.wd1.myworkdayjobs.com",
+        "cvshealth.wd1.myworkdayjobs.com"
+      ]
+    },
+    "enterprise_other": {
+      "tier": 1,
+      "label": "ENTERPRISE NON-WORKDAY",
+      "sites": [
+        "careers-westernsouthern.icims.com",
+        "jobs.kroger.com",
+        "careers.medpace.com",
+        "macys.taleo.net",
+        "careers.cintas.com",
+        "careers.tql.com",
+        "lcs.com/careers",
+        "kinetic-vision.com/careers"
+      ]
+    },
+    "enterprise_consulting": {
+      "tier": 1,
+      "label": "BIG FOUR / CONSULTING",
+      "sites": [
+        "deloitte.wd5.myworkdayjobs.com",
+        "pwc.wd3.myworkdayjobs.com",
+        "capgemini.wd3.myworkdayjobs.com"
+      ]
+    },
+    "cincy_regional": {
+      "tier": 1,
+      "label": "CINCINNATI REGIONAL",
+      "sites": [
+        "jobs.lever.co/paycor",
+        "boards.greenhouse.io/8451",
+        "boards.greenhouse.io/array",
+        "jobs.lever.co/altafiber",
+        "boards.greenhouse.io/ensemblehp",
+        "boards.greenhouse.io/patientpoint"
+      ]
+    },
+    "niche_boards": {
+      "tier": 3,
+      "label": "NICHE BOARDS",
+      "sites": ["wellfound.com", "workatastartup.com"]
+    }
+  },
+  "role_groups": {
+    "core_ops": [
+      "DevOps Engineer", "Senior DevOps Engineer", "DevOps Specialist",
+      "Site Reliability Engineer", "Senior Site Reliability Engineer", "Staff SRE", "Principal SRE", "SRE",
+      "Platform Engineer", "Cloud Platform Engineer", "Senior Platform Engineer",
+      "Production Engineer", "Automation Engineer", "Infrastructure Automation Engineer"
+    ],
+    "core_infra": [
+      "Cloud Engineer", "Senior Cloud Engineer", "Azure Cloud Engineer", "Senior Azure Cloud Engineer", "Azure Infrastructure Engineer",
+      "Infrastructure Engineer", "Senior Infrastructure Engineer", "Cloud Infrastructure Engineer",
+      "Systems Engineer", "Senior Systems Engineer", "IT Systems Engineer", "Infrastructure Systems Engineer",
+      "Cloud Operations Engineer", "Cloud Ops Engineer",
+      "Cloud Architect", "Solutions Architect", "Azure DevOps Engineer"
+    ],
+    "ai_ml": ["MLOps Engineer", "ML Platform Engineer", "AI Infrastructure Engineer", "GPU Cloud Engineer", "AI Platform Engineer"],
+    "finops": ["FinOps Engineer", "Cloud Cost Engineer", "Cost Optimization Engineer", "Cloud Governance Engineer"],
+    "devex": ["Developer Experience Engineer", "DevEx Engineer", "Internal Developer Platform", "IDP Engineer"],
+    "security": ["DevSecOps Engineer", "Cloud Security Engineer", "Infrastructure Security Engineer", "Security Engineer", "SecOps Engineer"]
+  },
+  "location_filters": [
+    "Remote", "Cincinnati", "Ohio", "Dayton", "Columbus", "Indianapolis", "Louisville", "Hybrid",
+    "Blue Ash", "Mason", "West Chester", "Evendale", "Covington", "Union Township", "Springdale", "Fairfield",
+    "Kenwood", "Norwood", "Sharonville", "Montgomery", "Florence", "Fort Mitchell", "Milford", "Loveland"
+  ],
+  "company_tiers": {
+    "enterprise": [
+      "myworkdayjobs.com", "pg.wd", "geaerospace", "fiftythird", "kroger.wd",
+      "westernsouthern", "worldpay", "medpace", "fidelity", "cintas",
+      "cchmc", "cinfin", "macys", "essilorluxottica", "gaig", "tql",
+      "deloitte", "pwc.wd", "capgemini"
+    ],
+    "startup": ["boards.greenhouse.io", "jobs.lever.co", "apply.workable.com", "jobs.ashbyhq.com"],
+    "cincy_regional": ["paycor", "8451", "array", "altafiber", "ensemblehp", "patientpoint"],
+    "niche": ["wellfound.com", "workatastartup.com", "otta"]
+  },
+  "exclude_keywords": [
+    "Senior Staff", "Staff Engineer", "Principal", "Director", "VP", "Lead Architect",
+    "10+ years", "15+ years", "Sales", "Account Executive", "Account Manager",
+    "Business Development", "Customer Success", "Recruiter", "Marketing",
+    "Legal", "Finance Manager", "HR", "People Operations"
+  ],
+  "settings": {
+    "max_days_lookback": 7,
+    "max_results_per_query": 25,
+    "dedup_window_days": 30,
+    "hot_badge_hours": 6,
+    "openai_model": "gpt-4o-mini",
+    "openai_max_tokens": 2000
+  }
+}
