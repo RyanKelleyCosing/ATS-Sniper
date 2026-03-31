@@ -1,5 +1,6 @@
 @echo off
 REM ATS Sniper v3 - Full Pipeline (Workday + Custom + USAJobs + Email + Resumes)
+set PYTHONUTF8=1
 cd /d "%~dp0"
 echo =============================================
 echo ATS Sniper v3 - Full Pipeline

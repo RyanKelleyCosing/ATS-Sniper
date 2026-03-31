@@ -38,3 +38,6 @@ Thumbs.db
 
 # Research docs (personal)
 CINCINNATI_EMPLOYERS.md
+
+# Claude Code config (local only)
+CLAUDE.md

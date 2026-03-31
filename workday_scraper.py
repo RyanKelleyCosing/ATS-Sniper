@@ -22,10 +22,33 @@ HEADERS = {
 
 # Search keywords for DevOps/Cloud/Infra roles
 SEARCH_TERMS = [
-    "DevOps", "SRE", "Site Reliability", "Cloud Engineer", 
+    "DevOps", "SRE", "Site Reliability", "Cloud Engineer",
     "Infrastructure Engineer", "Platform Engineer", "Cloud Architect",
     "Systems Engineer", "DevSecOps", "MLOps"
 ]
+
+EXCLUDE_TITLES = [
+    "senior staff", "staff engineer", "principal", "director", "vp",
+    "vice president", "lead architect", "head of", "chief",
+    "manager", "management",
+    "sales", "account executive", "account manager",
+    "business development", "customer success", "recruiter", "marketing",
+    "legal", "finance manager", "hr", "people operations",
+]
+
+# Standalone "lead" — exclude "Lead" as a prefix (e.g. "Lead DevOps Engineer")
+# but allow "lead" as part of compound words (e.g. "Leadership")
+EXCLUDE_LEAD_PREFIXES = ["lead "]
+
+
+def should_exclude_title(title: str) -> bool:
+    """Check if a job title should be excluded based on seniority/irrelevance."""
+    title_lower = title.lower()
+    if any(exc in title_lower for exc in EXCLUDE_TITLES):
+        return True
+    if any(title_lower.startswith(prefix) for prefix in EXCLUDE_LEAD_PREFIXES):
+        return True
+    return False
 
 
 def load_config() -> dict:
@@ -129,10 +152,13 @@ def scrape_all_workday(config: dict, verbose: bool = True) -> List[dict]:
         seen_urls = set()
         company_jobs = []
         
-        for term in SEARCH_TERMS[:3]:  # Limit to avoid rate limits
+        for i, term in enumerate(SEARCH_TERMS):
+            if i > 0:
+                import time
+                time.sleep(0.5)
             jobs = fetch_workday_jobs(endpoint, term)
             for job in jobs:
-                if job["url"] not in seen_urls:
+                if job["url"] not in seen_urls and not should_exclude_title(job["title"]):
                     seen_urls.add(job["url"])
                     company_jobs.append(job)
         

@@ -100,11 +100,20 @@ CANDIDATE RESUME/ACCOMPLISHMENTS:
 {resume[:4000]}
 
 IMPORTANT SCORING RULES:
-- The candidate has 5+ years experience and is seeking INDIVIDUAL CONTRIBUTOR roles (not management)
-- PENALIZE roles with "Lead", "Principal", "Staff", "Manager", "Director", "Head of" in the title by -10 to -15 points
-- These roles typically require team leadership/management experience the candidate may not have
-- PREFER roles like: "Senior DevOps Engineer", "DevOps Engineer", "SRE", "Cloud Engineer", "Platform Engineer"
-- Be realistic about seniority fit - a 5-year IC should target Senior IC roles, not Lead/Principal
+- The candidate has ~5 years of experience and targets INDIVIDUAL CONTRIBUTOR roles only.
+- Roles requiring 8+ years of experience should be penalized (cap at 50).
+
+STRICT SENIORITY PENALTY (MANDATORY):
+- If the job title contains ANY of: "Lead", "Principal", "Staff", "Senior Staff", "Manager", "Director", "Head of", "VP", "Chief":
+  -> CAP the match_score at a MAXIMUM of 30, regardless of how perfect the skill overlap is.
+  -> The ONLY exception: if the job description EXPLICITLY states "individual contributor" or "no direct reports" AND requires 5 years or fewer of experience, then score normally.
+- If the title contains "Senior" (but NOT "Senior Staff", "Senior Lead", "Senior Principal"), score normally. Senior IC is the target level.
+- Ideal title matches: "DevOps Engineer", "Senior DevOps Engineer", "SRE", "Cloud Engineer", "Platform Engineer", "Infrastructure Engineer"
+- Be STRICT. A perfect skill match with a Principal/Lead/Director title MUST score at most 30.
+
+IRRELEVANT ROLE PENALTY (MANDATORY):
+- If the role is primarily Sales, Marketing, HR, Legal, Finance, Recruiting, or Customer Success: score 0.
+- If the role is primarily frontend/UI/UX with no infrastructure component: cap at 20.
 
 Provide a JSON response with:
 1. "match_score": 0-100 score based on skills/experience overlap (APPLY SENIORITY PENALTY if applicable)

@@ -38,6 +38,8 @@ from resume_tailor import process_enterprise_jobs
 try:
     from icims_scraper import run_icims_scrape
     from oracle_hcm_scraper import run_oracle_hcm_scrape
+    from greenhouse_scraper import run_greenhouse_scrape
+    from lever_scraper import run_lever_scrape
     from hot_job_processor import run_hot_job_pipeline, get_hot_job_attachments
     from email_with_attachments import send_hot_job_email
     V3_ENABLED = True
@@ -171,7 +173,10 @@ def send_pipeline_email(new_jobs: list, stats: dict, config: dict, match_results
         <div class="stat">Total Jobs: <strong>{stats['total']}</strong></div>
         <div class="stat">New Workday: <strong>{stats['workday']}</strong></div>
         <div class="stat">New Custom: <strong>{stats['custom']}</strong></div>
-        <div class="stat">New USAJobs: <strong>{stats['usajobs']}</strong></div>
+        <div class="stat">New iCIMS: <strong>{stats.get('icims', 0)}</strong></div>
+        <div class="stat">New Oracle: <strong>{stats.get('oracle', 0)}</strong></div>
+        <div class="stat">New Greenhouse: <strong>{stats.get('greenhouse', 0)}</strong></div>
+        <div class="stat">New Lever: <strong>{stats.get('lever', 0)}</strong></div>
 
         <h2>🔥 Hot Jobs ({len(hot_jobs)})</h2>
         <p><em>Criteria: Match ≥80% OR Salary ≥$80k OR Enterprise + Relevant Title</em></p>
@@ -247,7 +252,7 @@ def run_pipeline(dry_run: bool = False, skip_tailor: bool = False, v3_mode: bool
 
     config = load_config()
     all_new_jobs = []
-    stats = {'workday': 0, 'custom': 0, 'usajobs': 0, 'icims': 0, 'oracle': 0, 'total': 0, 'analyzed': 0}
+    stats = {'workday': 0, 'custom': 0, 'usajobs': 0, 'icims': 0, 'oracle': 0, 'greenhouse': 0, 'lever': 0, 'total': 0, 'analyzed': 0}
 
     # 1. Workday Scraper
     print("\n" + "=" * 60)
@@ -295,6 +300,22 @@ def run_pipeline(dry_run: bool = False, skip_tailor: bool = False, v3_mode: bool
             all_new_jobs.extend([{**j, 'source': 'oracle_hcm_api'} for j in oracle_jobs])
         except Exception as e:
             print(f"   ⚠️ Oracle HCM scraper error: {e}")
+
+        # Greenhouse (84.51, GitLab, Cloudflare, etc.)
+        try:
+            greenhouse_jobs = asyncio.run(run_greenhouse_scrape(dry_run=dry_run))
+            stats['greenhouse'] = len(greenhouse_jobs)
+            all_new_jobs.extend([{**j, 'source': 'greenhouse_api'} for j in greenhouse_jobs])
+        except Exception as e:
+            print(f"   ⚠️ Greenhouse scraper error: {e}")
+
+        # Lever (Restaurant365, H1, Spotify, etc.)
+        try:
+            lever_jobs = asyncio.run(run_lever_scrape(dry_run=dry_run))
+            stats['lever'] = len(lever_jobs)
+            all_new_jobs.extend([{**j, 'source': 'lever_api'} for j in lever_jobs])
+        except Exception as e:
+            print(f"   ⚠️ Lever scraper error: {e}")
 
     # 3. USAJobs Scraper (Wright-Patt)
     print("\n" + "=" * 60)
@@ -367,6 +388,8 @@ def run_pipeline(dry_run: bool = False, skip_tailor: bool = False, v3_mode: bool
     if v3_mode and V3_ENABLED:
         print(f"   New from iCIMS: {stats.get('icims', 0)}")
         print(f"   New from Oracle HCM: {stats.get('oracle', 0)}")
+        print(f"   New from Greenhouse: {stats.get('greenhouse', 0)}")
+        print(f"   New from Lever: {stats.get('lever', 0)}")
     print(f"   New from USAJobs: {stats['usajobs']}")
     print(f"   🔥 Hot Jobs: {stats.get('hot_jobs', 0)}")
     print(f"   📄 Resumes Generated: {stats.get('resumes_generated', 0)}")

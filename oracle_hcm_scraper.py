@@ -20,6 +20,27 @@ import httpx
 CONFIG_FILE = Path(__file__).parent / "config.json"
 STATE_FILE = Path(__file__).parent / "job_state.json"
 
+EXCLUDE_TITLES = [
+    "senior staff", "staff engineer", "principal", "director", "vp",
+    "vice president", "lead architect", "head of", "chief",
+    "manager", "management",
+    "sales", "account executive", "account manager",
+    "business development", "customer success", "recruiter", "marketing",
+    "legal", "finance manager", "hr", "people operations",
+]
+
+EXCLUDE_LEAD_PREFIXES = ["lead "]
+
+
+def should_exclude_title(title: str) -> bool:
+    """Check if a job title should be excluded based on seniority/irrelevance."""
+    title_lower = title.lower()
+    if any(exc in title_lower for exc in EXCLUDE_TITLES):
+        return True
+    if any(title_lower.startswith(prefix) for prefix in EXCLUDE_LEAD_PREFIXES):
+        return True
+    return False
+
 # Oracle HCM endpoints - Cincinnati employers
 ORACLE_HCM_ENDPOINTS = {
     "uc_health": {
@@ -171,6 +192,9 @@ def parse_oracle_jobs(job_list: List[dict], endpoint_config: dict) -> List[Dict]
         # Filter by keywords in title
         title_lower = title.lower()
         if keywords and not any(kw in title_lower for kw in keywords):
+            continue
+
+        if should_exclude_title(title):
             continue
 
         # Filter by location if specified

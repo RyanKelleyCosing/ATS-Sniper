@@ -1,6 +1,7 @@
 @echo off
 REM ATS Sniper v3 - Full Pipeline (Workday + Custom + USAJobs + Email + Resumes)
 REM Runs at 09:30 AM - Enterprise focus
+set PYTHONUTF8=1
 cd /d "%~dp0"
 echo =============================================
 echo ATS Sniper v3 - Morning Pipeline

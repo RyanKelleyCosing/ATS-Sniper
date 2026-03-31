@@ -21,6 +21,27 @@ import httpx
 CONFIG_FILE = Path(__file__).parent / "config.json"
 STATE_FILE = Path(__file__).parent / "job_state.json"
 
+EXCLUDE_TITLES = [
+    "senior staff", "staff engineer", "principal", "director", "vp",
+    "vice president", "lead architect", "head of", "chief",
+    "manager", "management",
+    "sales", "account executive", "account manager",
+    "business development", "customer success", "recruiter", "marketing",
+    "legal", "finance manager", "hr", "people operations",
+]
+
+EXCLUDE_LEAD_PREFIXES = ["lead "]
+
+
+def should_exclude_title(title: str) -> bool:
+    """Check if a job title should be excluded based on seniority/irrelevance."""
+    title_lower = title.lower()
+    if any(exc in title_lower for exc in EXCLUDE_TITLES):
+        return True
+    if any(title_lower.startswith(prefix) for prefix in EXCLUDE_LEAD_PREFIXES):
+        return True
+    return False
+
 # iCIMS endpoints - add more as discovered
 ICIMS_ENDPOINTS = {
     "western_southern": {
@@ -161,6 +182,9 @@ def parse_icims_jobs(data: dict, endpoint_config: dict, keywords: List[str]) -> 
         # Filter by keywords
         title_lower = title.lower()
         if not any(kw in title_lower for kw in keywords):
+            continue
+
+        if should_exclude_title(title):
             continue
 
         job_url = f"{endpoint_config['base_url']}/jobs/{job_id}"

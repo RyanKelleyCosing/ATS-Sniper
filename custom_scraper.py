@@ -19,6 +19,27 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
 
+EXCLUDE_TITLES = [
+    "senior staff", "staff engineer", "principal", "director", "vp",
+    "vice president", "lead architect", "head of", "chief",
+    "manager", "management",
+    "sales", "account executive", "account manager",
+    "business development", "customer success", "recruiter", "marketing",
+    "legal", "finance manager", "hr", "people operations",
+]
+
+EXCLUDE_LEAD_PREFIXES = ["lead "]
+
+
+def should_exclude_title(title: str) -> bool:
+    """Check if a job title should be excluded based on seniority/irrelevance."""
+    title_lower = title.lower()
+    if any(exc in title_lower for exc in EXCLUDE_TITLES):
+        return True
+    if any(title_lower.startswith(prefix) for prefix in EXCLUDE_LEAD_PREFIXES):
+        return True
+    return False
+
 # Load config
 CONFIG_FILE = Path(__file__).parent / "config.json"
 STATE_FILE = Path(__file__).parent / "job_state.json"
@@ -514,7 +535,8 @@ async def run_custom_scraper(targets: List[str] = None):
 
         for job in jobs:
             url = job.get("url", "")
-            if url and url not in state.get("seen_jobs", {}):
+            title = job.get("title", "")
+            if url and url not in state.get("seen_jobs", {}) and not should_exclude_title(title):
                 state.setdefault("seen_jobs", {})[url] = datetime.now().isoformat()
                 state.setdefault("jobs", {})[url] = job
                 new_jobs += 1
