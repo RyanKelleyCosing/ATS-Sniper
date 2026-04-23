@@ -16,37 +16,12 @@ from typing import Dict, List, Optional
 import httpx
 from bs4 import BeautifulSoup
 
-CONFIG_FILE = Path(__file__).parent / "config.json"
-STATE_FILE = Path(__file__).parent / "job_state.json"
+from utils.state import load_config, load_state, save_state
+from utils.filters import get_board_keyword_markers, should_keep_job
+from utils.http import httpx_get_with_retry
+from utils.pipeline_telemetry import record_source_rejection_reason
 
 API_BASE = "https://boards-api.greenhouse.io/v1/boards"
-
-TITLE_KEYWORDS = [
-    "devops", "cloud", "engineer", "infrastructure", "platform", "sre",
-    "systems", "software", "reliability", "devsecops", "mlops", "architect",
-    "automation", "security", "kubernetes", "azure", "aws", "site reliability",
-]
-
-EXCLUDE_TITLES = [
-    "senior staff", "staff engineer", "principal", "director", "vp",
-    "vice president", "lead architect", "head of", "chief",
-    "manager", "management",
-    "sales", "account executive", "account manager",
-    "business development", "customer success", "recruiter", "marketing",
-    "legal", "finance manager", "hr", "people operations",
-]
-
-EXCLUDE_LEAD_PREFIXES = ["lead "]
-
-
-def should_exclude_title(title: str) -> bool:
-    """Check if a job title should be excluded based on seniority/irrelevance."""
-    title_lower = title.lower()
-    if any(exc in title_lower for exc in EXCLUDE_TITLES):
-        return True
-    if any(title_lower.startswith(prefix) for prefix in EXCLUDE_LEAD_PREFIXES):
-        return True
-    return False
 
 DEFAULT_ENDPOINTS = {
     "8451": {
@@ -99,29 +74,65 @@ DEFAULT_ENDPOINTS = {
         "board_token": "rootinsurance",
         "priority": "MEDIUM"
     },
+    "vannevarlabs": {
+        "name": "Vannevar Labs",
+        "board_token": "vannevarlabs",
+        "priority": "HIGH"
+    },
+    "axle": {
+        "name": "Axle",
+        "board_token": "axle",
+        "priority": "MEDIUM"
+    },
+    "seisandbox": {
+        "name": "SEI",
+        "board_token": "seisandbox",
+        "priority": "MEDIUM"
+    },
+    "gametime": {
+        "name": "Gametime",
+        "board_token": "gametimeunited",
+        "priority": "HIGH"
+    },
+    "stitchfix": {
+        "name": "Stitch Fix",
+        "board_token": "204951305985924",
+        "priority": "MEDIUM"
+    },
+    "chainguard": {
+        "name": "Chainguard",
+        "board_token": "chainguard",
+        "priority": "HIGH"
+    },
 }
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
     "Accept": "application/json",
 }
+GREENHOUSE_REQUEST_RETRY_ATTEMPTS = 3
 
 
-def load_config() -> dict:
-    with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
-        return json.load(f)
+def get_greenhouse_endpoints(config: Optional[dict] = None) -> Dict[str, dict]:
+    """Return default Greenhouse boards merged with config overrides."""
+    config = config or load_config()
+    configured_endpoints = config.get("greenhouse_endpoints", {})
+    endpoints = {
+        endpoint_key: dict(endpoint_config)
+        for endpoint_key, endpoint_config in DEFAULT_ENDPOINTS.items()
+    }
+    if not isinstance(configured_endpoints, dict):
+        return endpoints
 
+    for endpoint_key, endpoint_config in configured_endpoints.items():
+        if not isinstance(endpoint_config, dict):
+            continue
+        endpoints[endpoint_key] = {
+            **endpoints.get(endpoint_key, {}),
+            **endpoint_config,
+        }
 
-def load_state() -> dict:
-    if STATE_FILE.exists():
-        with open(STATE_FILE, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    return {"seen_jobs": {}}
-
-
-def save_state(state: dict) -> None:
-    with open(STATE_FILE, 'w', encoding='utf-8') as f:
-        json.dump(state, f, indent=2)
+    return endpoints
 
 
 def strip_html(html: str) -> str:
@@ -137,7 +148,13 @@ async def fetch_greenhouse_jobs(board_token: str) -> Optional[List[dict]]:
 
     async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
         try:
-            response = await client.get(url, headers=HEADERS)
+            response = await httpx_get_with_retry(
+                client,
+                url,
+                headers=HEADERS,
+                max_retries=GREENHOUSE_REQUEST_RETRY_ATTEMPTS,
+                retry_label=f"Greenhouse board '{board_token}'",
+            )
 
             if response.status_code == 404:
                 print(f"  -- Board '{board_token}' not found (404), skipping")
@@ -158,7 +175,8 @@ async def fetch_greenhouse_jobs(board_token: str) -> Optional[List[dict]]:
 def parse_greenhouse_jobs(
     job_list: List[dict],
     company_name: str,
-    priority: str
+    priority: str,
+    telemetry: Optional[Dict[str, dict]] = None,
 ) -> List[Dict]:
     """Parse Greenhouse API response into standardized job format."""
     jobs = []
@@ -167,16 +185,23 @@ def parse_greenhouse_jobs(
         title = job_data.get("title", "")
         title_lower = title.lower()
 
-        if not any(kw in title_lower for kw in TITLE_KEYWORDS):
-            continue
-
-        if should_exclude_title(title):
+        if not any(kw in title_lower for kw in get_board_keyword_markers()):
+            record_source_rejection_reason(telemetry, "greenhouse", "non_target_title")
             continue
 
         job_id = str(job_data.get("id", ""))
         location = job_data.get("location", {}).get("name", "Unknown")
         content_html = job_data.get("content", "")
         description = strip_html(content_html)
+
+        if not should_keep_job(
+            title,
+            location=location,
+            description=description,
+            telemetry=telemetry,
+            telemetry_source="greenhouse",
+        ):
+            continue
 
         salary = ""
         pay_ranges = job_data.get("pay_input_ranges", [])
@@ -214,7 +239,8 @@ def parse_greenhouse_jobs(
 
 async def scrape_greenhouse_endpoint(
     endpoint_key: str,
-    endpoint_config: dict
+    endpoint_config: dict,
+    telemetry: Optional[Dict[str, dict]] = None,
 ) -> List[Dict]:
     """Scrape a single Greenhouse board."""
     board_token = endpoint_config.get("board_token", endpoint_key)
@@ -227,12 +253,16 @@ async def scrape_greenhouse_endpoint(
     if job_list is None:
         return []
 
-    jobs = parse_greenhouse_jobs(job_list, company_name, priority)
+    jobs = parse_greenhouse_jobs(job_list, company_name, priority, telemetry=telemetry)
     print(f"Found {len(jobs)} matching jobs (of {len(job_list)} total)")
     return jobs
 
 
-async def run_greenhouse_scrape(dry_run: bool = False) -> List[Dict]:
+async def run_greenhouse_scrape(
+    dry_run: bool = False,
+    endpoints: Optional[Dict[str, dict]] = None,
+    telemetry: Optional[Dict[str, dict]] = None,
+) -> List[Dict]:
     """
     Run scraper for all configured Greenhouse boards.
 
@@ -244,7 +274,8 @@ async def run_greenhouse_scrape(dry_run: bool = False) -> List[Dict]:
     print("=" * 60)
 
     config = load_config()
-    endpoints = config.get("greenhouse_endpoints", DEFAULT_ENDPOINTS)
+    if endpoints is None:
+        endpoints = get_greenhouse_endpoints(config)
     state = load_state()
     all_jobs = []
     new_jobs = []
@@ -253,10 +284,9 @@ async def run_greenhouse_scrape(dry_run: bool = False) -> List[Dict]:
 
     for endpoint_key, endpoint_config in endpoints.items():
         if dry_run:
-            print(f"  [DRY RUN] Would scrape: {endpoint_config.get('name', endpoint_key)}")
-            continue
+            print(f"  [DRY RUN] Scraping without state write: {endpoint_config.get('name', endpoint_key)}")
 
-        jobs = await scrape_greenhouse_endpoint(endpoint_key, endpoint_config)
+        jobs = await scrape_greenhouse_endpoint(endpoint_key, endpoint_config, telemetry=telemetry)
         all_jobs.extend(jobs)
 
         for job in jobs:

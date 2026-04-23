@@ -8,10 +8,10 @@ import json
 import requests
 from datetime import datetime
 from pathlib import Path
-from typing import List, Dict
+from typing import Any, Dict, List
 
-CONFIG_FILE = Path(__file__).parent / "config.json"
-STATE_FILE = Path(__file__).parent / "job_state.json"
+from utils.state import load_config, load_state, save_state
+from utils.filters import should_keep_job
 
 # IT-related job category codes (2200 series)
 IT_JOB_CATEGORIES = [
@@ -21,30 +21,14 @@ IT_JOB_CATEGORIES = [
 ]
 
 
-def load_config() -> dict:
-    with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
-        return json.load(f)
-
-
-def load_state() -> dict:
-    if STATE_FILE.exists():
-        with open(STATE_FILE, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    return {"seen_jobs": {}, "jobs": {}}
-
-
-def save_state(state: dict):
-    with open(STATE_FILE, 'w', encoding='utf-8') as f:
-        json.dump(state, f, indent=2, ensure_ascii=False)
-
-
 def search_usajobs(
     api_key: str,
     email: str,
     location: str = "Dayton, Ohio",
     radius: int = 50,
     keywords: str = "Software Engineer Developer IT",
-    results_per_page: int = 50
+    results_per_page: int = 50,
+    telemetry: dict[str, Any] | None = None,
 ) -> List[Dict]:
     """Search USAJobs API for IT positions near specified location."""
     
@@ -108,6 +92,15 @@ def search_usajobs(
             details = desc.get("UserArea", {}).get("Details", {})
             job["description"] = details.get("JobSummary", "")
             job["requirements"] = details.get("Requirements", "")
+
+            if not should_keep_job(
+                job["title"],
+                location=location_str,
+                description=f"{job['description']}\n{job['requirements']}",
+                telemetry=telemetry,
+                telemetry_source="usajobs",
+            ):
+                continue
             
             jobs.append(job)
         
@@ -118,7 +111,7 @@ def search_usajobs(
         return []
 
 
-def run_usajobs_scraper():
+def run_usajobs_scraper(telemetry: dict[str, Any] | None = None):
     """Main scraper entry point."""
     print("=" * 60)
     print("🏛️  USAJOBS SCRAPER - Federal IT Positions")
@@ -141,14 +134,17 @@ def run_usajobs_scraper():
     
     # Search locations
     searches = [
-        {"location": "Dayton, Ohio", "radius": 50, "keywords": "Software Developer IT Cloud Azure"},
-        {"location": "Wright-Patterson AFB, Ohio", "radius": 25, "keywords": "IT Software"},
+        {
+            "location": "Cincinnati, Ohio",
+            "radius": 35,
+            "keywords": "DevOps Cloud Infrastructure Site Reliability Azure IT",
+        },
     ]
     
     all_jobs = []
     for search in searches:
         print(f"\n🔍 Searching {search['location']} (radius: {search['radius']} mi)...")
-        jobs = search_usajobs(api_key, email, **search)
+        jobs = search_usajobs(api_key, email, telemetry=telemetry, **search)
         all_jobs.extend(jobs)
     
     # Dedupe and save

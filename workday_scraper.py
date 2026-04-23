@@ -5,14 +5,16 @@ Bypasses SerpApi for enterprise tier jobs - gets fresh postings instantly!
 """
 
 import json
+import random
+import time
 import requests
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, List, Optional
 
-# Load config
-CONFIG_PATH = Path(__file__).parent / "config.json"
-STATE_PATH = Path(__file__).parent / "job_state.json"
+from utils.state import load_config, load_state, save_state
+from utils.filters import get_workday_search_terms, should_keep_job
+from utils.job_identity import ensure_job_identity_index, find_existing_job_url, store_job_identity_record
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
@@ -20,56 +22,38 @@ HEADERS = {
     "Content-Type": "application/json"
 }
 
-# Search keywords for DevOps/Cloud/Infra roles
-SEARCH_TERMS = [
-    "DevOps", "SRE", "Site Reliability", "Cloud Engineer",
-    "Infrastructure Engineer", "Platform Engineer", "Cloud Architect",
-    "Systems Engineer", "DevSecOps", "MLOps"
-]
-
-EXCLUDE_TITLES = [
-    "senior staff", "staff engineer", "principal", "director", "vp",
-    "vice president", "lead architect", "head of", "chief",
-    "manager", "management",
-    "sales", "account executive", "account manager",
-    "business development", "customer success", "recruiter", "marketing",
-    "legal", "finance manager", "hr", "people operations",
-]
-
-# Standalone "lead" — exclude "Lead" as a prefix (e.g. "Lead DevOps Engineer")
-# but allow "lead" as part of compound words (e.g. "Leadership")
-EXCLUDE_LEAD_PREFIXES = ["lead "]
+WORKDAY_RETRY_STATUS_CODES = frozenset({408, 425, 429, 500, 502, 503, 504, 520, 521, 522, 523, 524})
+WORKDAY_MAX_ATTEMPTS = 3
+WORKDAY_BACKOFF_BASE_SECONDS = 1.0
+WORKDAY_BACKOFF_MAX_SECONDS = 8.0
 
 
-def should_exclude_title(title: str) -> bool:
-    """Check if a job title should be excluded based on seniority/irrelevance."""
-    title_lower = title.lower()
-    if any(exc in title_lower for exc in EXCLUDE_TITLES):
-        return True
-    if any(title_lower.startswith(prefix) for prefix in EXCLUDE_LEAD_PREFIXES):
-        return True
-    return False
-
-
-def load_config() -> dict:
-    """Load configuration from config.json"""
-    with open(CONFIG_PATH, 'r', encoding='utf-8') as f:
-        return json.load(f)
-
-
-def load_state() -> dict:
-    """Load existing job state"""
-    if STATE_PATH.exists():
-        with open(STATE_PATH, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    return {"jobs": {}, "last_run": None}
-
-
-def save_state(state: dict):
-    """Save job state"""
-    with open(STATE_PATH, 'w', encoding='utf-8') as f:
-        json.dump(state, f, indent=2, ensure_ascii=False)
-
+def _workday_post_with_retry(url: str, payload: dict, timeout: int = 15) -> requests.Response:
+    """POST to a Workday CXS endpoint with jittered backoff on transient 5xx/429."""
+    last_error: Optional[Exception] = None
+    for attempt in range(1, WORKDAY_MAX_ATTEMPTS + 1):
+        try:
+            response = requests.post(url, headers=HEADERS, json=payload, timeout=timeout)
+        except requests.RequestException as exc:
+            last_error = exc
+            if attempt == WORKDAY_MAX_ATTEMPTS:
+                raise
+        else:
+            if response.status_code not in WORKDAY_RETRY_STATUS_CODES:
+                return response
+            last_error = requests.HTTPError(
+                f"{response.status_code} transient response from {url}",
+                response=response,
+            )
+            if attempt == WORKDAY_MAX_ATTEMPTS:
+                return response
+        sleep_for = min(
+            WORKDAY_BACKOFF_MAX_SECONDS,
+            WORKDAY_BACKOFF_BASE_SECONDS * (2 ** (attempt - 1)),
+        ) + random.uniform(0.0, 0.5)
+        time.sleep(sleep_for)
+    # Unreachable, but keep the type checker happy.
+    raise last_error if last_error else RuntimeError(f"Workday POST failed for {url}")
 
 def fetch_workday_jobs(endpoint: dict, search_text: str = "") -> List[dict]:
     """
@@ -95,7 +79,7 @@ def fetch_workday_jobs(endpoint: dict, search_text: str = "") -> List[dict]:
     jobs = []
     
     try:
-        response = requests.post(url, headers=HEADERS, json=payload, timeout=15)
+        response = _workday_post_with_retry(url, payload, timeout=15)
         response.raise_for_status()
         data = response.json()
         
@@ -105,6 +89,15 @@ def fetch_workday_jobs(endpoint: dict, search_text: str = "") -> List[dict]:
             title = job.get("title", "Unknown Title")
             external_path = job.get("externalPath", "")
             posted_on = job.get("postedOn", "")
+            location = job.get("locationsText") or job.get("location", "")
+            if not location:
+                bullet_fields = job.get("bulletFields", [])
+                if isinstance(bullet_fields, list):
+                    location = " | ".join(
+                        str(field).strip()
+                        for field in bullet_fields
+                        if str(field).strip()
+                    )
             
             # Build the full job URL
             # API format: https://pg.wd5.myworkdayjobs.com/wday/cxs/pg/1000/jobs
@@ -118,6 +111,7 @@ def fetch_workday_jobs(endpoint: dict, search_text: str = "") -> List[dict]:
                 "title": title,
                 "company": company_name,
                 "url": job_url,
+                "location": location,
                 "posted_on": posted_on,
                 "source": "workday_api",
                 "tier": "enterprise"
@@ -131,7 +125,11 @@ def fetch_workday_jobs(endpoint: dict, search_text: str = "") -> List[dict]:
     return jobs
 
 
-def scrape_all_workday(config: dict, verbose: bool = True) -> List[dict]:
+def scrape_all_workday(
+    config: dict,
+    verbose: bool = True,
+    telemetry: Optional[Dict[str, dict]] = None,
+) -> List[dict]:
     """
     Scrape all configured Workday endpoints.
     
@@ -150,15 +148,24 @@ def scrape_all_workday(config: dict, verbose: bool = True) -> List[dict]:
         
         # Try multiple search terms to catch different job titles
         seen_urls = set()
+        evaluated_urls = set()
         company_jobs = []
         
-        for i, term in enumerate(SEARCH_TERMS):
+        for i, term in enumerate(get_workday_search_terms()):
             if i > 0:
                 import time
                 time.sleep(0.5)
             jobs = fetch_workday_jobs(endpoint, term)
             for job in jobs:
-                if job["url"] not in seen_urls and not should_exclude_title(job["title"]):
+                if job["url"] in evaluated_urls:
+                    continue
+                evaluated_urls.add(job["url"])
+                if job["url"] not in seen_urls and should_keep_job(
+                    job["title"],
+                    location=job.get("location", ""),
+                    telemetry=telemetry,
+                    telemetry_source="workday",
+                ):
                     seen_urls.add(job["url"])
                     company_jobs.append(job)
         
@@ -170,7 +177,10 @@ def scrape_all_workday(config: dict, verbose: bool = True) -> List[dict]:
     return all_jobs
 
 
-def run_workday_scrape(dry_run: bool = False) -> List[dict]:
+def run_workday_scrape(
+    dry_run: bool = False,
+    telemetry: Optional[Dict[str, dict]] = None,
+) -> List[dict]:
     """
     Run a full Workday scrape and update job state.
     
@@ -182,17 +192,27 @@ def run_workday_scrape(dry_run: bool = False) -> List[dict]:
     """
     config = load_config()
     state = load_state()
+    ensure_job_identity_index(state)
     
     print("=" * 60)
     print("🏢 WORKDAY DIRECT SCRAPER - Enterprise Jobs")
     print("=" * 60)
     
-    all_jobs = scrape_all_workday(config)
+    all_jobs = scrape_all_workday(config, telemetry=telemetry)
     
     # Find new jobs
-    existing_urls = set(state.get("jobs", {}).keys())
-    new_jobs = [j for j in all_jobs if j["url"] not in existing_urls]
-    
+    new_jobs = []
+    for job in all_jobs:
+        existing_url = find_existing_job_url(state, job)
+        if existing_url:
+            store_job_identity_record(state, job, stored_url=existing_url)
+            continue
+        new_jobs.append(job)
+
+    if telemetry is not None:
+        seen_counters = telemetry.setdefault("_already_seen", {})
+        seen_counters["workday"] = max(0, len(all_jobs) - len(new_jobs))
+
     print(f"\n📊 Results:")
     print(f"   Total jobs found: {len(all_jobs)}")
     print(f"   New jobs: {len(new_jobs)}")
@@ -203,13 +223,15 @@ def run_workday_scrape(dry_run: bool = False) -> List[dict]:
             state["jobs"] = {}
         # Add new jobs to state
         for job in new_jobs:
-            state["jobs"][job["url"]] = {
+            store_job_identity_record(state, {
                 "title": job["title"],
                 "company": job["company"],
+                "url": job["url"],
+                "location": job.get("location", ""),
                 "first_seen": datetime.now().isoformat(),
                 "source": "workday_api",
                 "tier": "enterprise"
-            }
+            })
         state["last_workday_run"] = datetime.now().isoformat()
         save_state(state)
         print(f"   ✅ State updated!")

@@ -5,13 +5,17 @@ Write-Host "Removing ATS Sniper scheduled tasks..." -ForegroundColor Yellow
 
 $tasks = @(
     # Active tasks (created by setup_scheduler.ps1)
+    "ATS_Sniper_OnLogin_CurrentUser",
+    "ATS_Sniper_Afternoon_CurrentUser",
+    "ATS_Sniper_RunMonitor_CurrentUser",
+    # Legacy task names (from previous versions)
     "ATS_Sniper_OnLogin",
     "ATS_Sniper_Afternoon",
-    # Legacy task names (from previous versions)
     "ATS_Sniper_Morning",
     "ATS_Sniper_Evening",
     "ATS_Sniper_Startup",
-    "ATS_Sniper_Hourly"
+    "ATS_Sniper_Hourly",
+    "ATS_Sniper_RunMonitor"
 )
 
 foreach ($task in $tasks) {

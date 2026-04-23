@@ -1,5 +1,7 @@
 # Secrets and credentials
 config.json
+.env
+local.settings.json
 
 # State files (user-specific runtime data)
 job_state.json
@@ -11,6 +13,19 @@ sniper.log
 outputs/
 reports/
 cover_letters/
+jobs_processed/
+jobs_inbox/*
+!jobs_inbox/README.md
+resumes to make manually/
+
+# Personal data files (kept private, not in public repo)
+master_skills.json
+benchmarks/
+
+# Run logs (may contain absolute paths with username)
+*.log
+afternoon_run_real.log
+last_run.log
 
 # Python
 __pycache__/
@@ -24,13 +39,16 @@ build/
 # Virtual environment
 venv/
 .venv/
+.venv-jobspy/
+.venv313/
 env/
 
 # IDE
-.vscode/
+
 .idea/
 *.swp
 *.swo
+.azure/
 
 # OS files
 Thumbs.db
@@ -41,3 +59,5 @@ CINCINNATI_EMPLOYERS.md
 
 # Claude Code config (local only)
 CLAUDE.md
+
+.python_packages

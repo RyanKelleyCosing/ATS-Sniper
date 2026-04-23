@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Enhanced Email Module - Sends notifications with tailored resume attachments
+Enhanced Email Module - Sends notifications with tailored resume and cover-letter attachments
 
 For Hot Jobs (>=80% match):
-- Generates and attaches tailored PDF/DOCX resumes
+- Generates and attaches tailored resumes and cover letters
 - Includes match analysis in email body
 - Ready-to-apply package for human review
 """
@@ -22,16 +22,38 @@ from typing import Dict, List, Optional
 
 # Paths
 SCRIPT_DIR = Path(__file__).parent
-CONFIG_PATH = SCRIPT_DIR / "config.json"
+
+from utils.state import load_config
+from utils.contacts import format_contact_emails, primary_contact_email
+from utils.pipeline_freshness import freshness_badge_label, sort_jobs_by_freshness
+
+EMAIL_TIMEOUT_SECONDS = 30
 
 
-def load_config() -> dict:
-    with open(CONFIG_PATH, 'r', encoding='utf-8') as f:
-        return json.load(f)
+def build_hot_job_email_subject(hot_jobs: List[Dict], regular_jobs: List[Dict]) -> str:
+    """Return subject text that matches the actual notification content."""
+    timestamp = datetime.now().strftime('%b %d, %I:%M %p')
+    if hot_jobs:
+        return f"🔥 {len(hot_jobs)} Hot Jobs + Resumes Ready - {timestamp}"
+    if regular_jobs:
+        return f"📋 {len(regular_jobs)} Jobs Ready For Review - {timestamp}"
+    return f"📭 No Reviewable Jobs - {timestamp}"
+
+
+def get_hot_job_email_header_copy(hot_jobs: List[Dict], regular_jobs: List[Dict]) -> tuple[str, str]:
+    """Return the header title and subtitle for the notification email."""
+    if hot_jobs:
+        return "🔥 HOT JOBS ALERT", "Tailored Resumes + Cover Letters Attached"
+    if regular_jobs:
+        return "📋 JOBS READY FOR REVIEW", "CSV attached for manual review"
+    return "📭 NO REVIEWABLE JOBS", "All new jobs were screened out before review"
 
 
 def build_hot_job_html(hot_jobs: List[Dict], regular_jobs: List[Dict], stats: Dict) -> str:
     """Build HTML email body for hot job notification."""
+    hot_jobs = sort_jobs_by_freshness(hot_jobs)
+    regular_jobs = sort_jobs_by_freshness(regular_jobs)
+    header_title, header_subtitle = get_hot_job_email_header_copy(hot_jobs, regular_jobs)
     
     html = f"""<!DOCTYPE html>
 <html>
@@ -51,6 +73,8 @@ def build_hot_job_html(hot_jobs: List[Dict], regular_jobs: List[Dict], stats: Di
         .hot-job .title {{ font-size: 16px; font-weight: 600; color: #1a1a1a; margin: 0 0 6px 0; }}
         .hot-job .company {{ font-size: 14px; color: #dc2626; margin: 0 0 8px 0; }}
         .hot-job .score {{ display: inline-block; background: #dc2626; color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }}
+        .hot-job .freshness {{ display: inline-block; background: #0f766e; color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; margin-left: 8px; }}
+        .hot-job .freshness24 {{ background: #0ea5e9; }}
         .hot-job .details {{ font-size: 12px; color: #666; margin-top: 8px; }}
         .hot-job .resume-note {{ background: #dcfce7; color: #166534; padding: 6px 12px; border-radius: 4px; font-size: 11px; margin-top: 10px; }}
         .apply-btn {{ display: inline-block; background: #dc2626; color: white; padding: 8px 20px; border-radius: 6px; text-decoration: none; font-size: 13px; font-weight: 500; margin-top: 10px; }}
@@ -63,14 +87,15 @@ def build_hot_job_html(hot_jobs: List[Dict], regular_jobs: List[Dict], stats: Di
 <body>
     <div class="container">
         <div class="header">
-            <h1>🔥 HOT JOBS ALERT</h1>
-            <div class="subtitle">Tailored Resumes Attached - Ready to Apply!</div>
+            <h1>{header_title}</h1>
+            <div class="subtitle">{header_subtitle}</div>
         </div>
         <div class="stats-bar">
             <div class="stat"><div class="stat-num">{len(hot_jobs)}</div><div class="stat-label">Hot Jobs</div></div>
             <div class="stat"><div class="stat-num">{stats.get('resumes_generated', 0)}</div><div class="stat-label">Resumes Generated</div></div>
+            <div class="stat"><div class="stat-num">{stats.get('cover_letters_generated', 0)}</div><div class="stat-label">Cover Letters</div></div>
+            <div class="stat"><div class="stat-num">{stats.get('auto_promoted_count', 0)}</div><div class="stat-label">Auto-Promoted</div></div>
             <div class="stat"><div class="stat-num">{len(regular_jobs)}</div><div class="stat-label">In CSV</div></div>
-            <div class="stat"><div class="stat-num">{stats.get('total_processed', 0)}</div><div class="stat-label">Total Found</div></div>
         </div>
 """
     
@@ -79,19 +104,54 @@ def build_hot_job_html(hot_jobs: List[Dict], regular_jobs: List[Dict], stats: Di
         
         for job in hot_jobs:
             score = job.get("match_score", 0)
-            has_resume = bool(job.get("resume_pdf") or job.get("resume_docx"))
-            resume_note = '<div class="resume-note">✅ Tailored resume attached below</div>' if has_resume else ''
+            has_ats_resume = bool(job.get("resume_ats_docx"))
+            has_resume = bool(has_ats_resume or job.get("resume_pdf") or job.get("resume_docx"))
+            has_cover_letter = bool(job.get("cover_letter_docx") or job.get("cover_letter_txt"))
+            freshness_bucket = str(job.get("freshness_bucket", "")).strip()
+            freshness_label = freshness_badge_label(freshness_bucket)
+            freshness_badge = ""
+            if freshness_label and freshness_bucket.startswith("fresh_under"):
+                freshness_class = "freshness" if freshness_bucket == "fresh_under_6h" else "freshness freshness24"
+                freshness_badge = f'<span class="{freshness_class}">{freshness_label}</span>'
+            promotion_badge = (
+                '<span class="freshness">Auto-Promoted</span>'
+                if job.get("phase6_auto_promoted") else ''
+            )
+            artifact_parts = []
+            if has_ats_resume:
+                artifact_parts.append("ATS resume DOCX")
+            elif has_resume:
+                artifact_parts.append("resume")
+            if has_cover_letter:
+                artifact_parts.append("cover letter")
+            artifact_note = ''
+            if artifact_parts:
+                if has_ats_resume:
+                    artifact_note = (
+                        '<div class="resume-note">✅ Tailored ' + ' + '.join(artifact_parts) + ' attached below. '
+                        'Upload the ATS DOCX first for ATS forms; keep the PDF only for visual review.</div>'
+                    )
+                else:
+                    artifact_note = (
+                        '<div class="resume-note">✅ Tailored ' + ' + '.join(artifact_parts) + ' attached below</div>'
+                    )
+            contact_emails = format_contact_emails(job.get("contact_emails", [])) or job.get("contact_email", "")
+            contact_email = primary_contact_email(job.get("contact_emails", [])) or job.get("contact_email", "")
+            contact_line = (
+                f' | 📧 <a href="mailto:{contact_email}">{contact_emails}</a>'
+                if contact_email and contact_emails else ''
+            )
             
             html += f'''
             <div class="hot-job">
                 <p class="title">{job.get("title", "Unknown")}</p>
                 <p class="company">🏢 {job.get("company", "Unknown")}</p>
-                <span class="score">{score}% Match</span>
+                <span class="score">{score}% Match</span>{freshness_badge}{promotion_badge}
                 <div class="details">
                     📍 {job.get("location", "N/A")} | 
-                    📅 Found: {datetime.now().strftime("%B %d")}
+                    📅 Posted: {job.get("posted_date", job.get("date_posted", "unknown"))}{contact_line}
                 </div>
-                {resume_note}
+                {artifact_note}
                 <a href="{job.get("url", "#")}" class="apply-btn">Apply Now →</a>
             </div>
             '''
@@ -99,18 +159,47 @@ def build_hot_job_html(hot_jobs: List[Dict], regular_jobs: List[Dict], stats: Di
         html += '</div>'
     
     # Action items section
-    html += '''
+    if hot_jobs:
+        action_items = '''
         <div class="section">
             <h2>📋 Next Steps</h2>
             <div class="action-list">
                 <ol>
                     <li><strong>Review attached resumes</strong> - They're tailored to each job</li>
-                    <li><strong>Click "Apply Now"</strong> on jobs above and upload the matching resume</li>
+                    <li><strong>Click "Apply Now"</strong> on jobs above and upload the ATS DOCX first; keep the PDF for visual review only</li>
                     <li><strong>Check the CSV</strong> for additional opportunities below threshold</li>
                 </ol>
             </div>
         </div>
     '''
+    elif regular_jobs:
+        action_items = '''
+        <div class="section">
+            <h2>📋 Next Steps</h2>
+            <div class="action-list">
+                <ol>
+                    <li><strong>Review the attached CSV</strong> for the strongest manual-review targets</li>
+                    <li><strong>Open the job links</strong> for roles worth pursuing and shortlist them</li>
+                    <li><strong>Generate tailored materials on demand</strong> for any job you want to pursue immediately</li>
+                </ol>
+            </div>
+        </div>
+    '''
+    else:
+        action_items = '''
+        <div class="section">
+            <h2>📋 Outcome</h2>
+            <div class="action-list">
+                <ol>
+                    <li><strong>No manual review is required</strong> for this run</li>
+                    <li><strong>All newly discovered roles</strong> were screened out before scoring or packaging</li>
+                    <li><strong>Watch the next scheduled run</strong> for the next set of targets</li>
+                </ol>
+            </div>
+        </div>
+    '''
+
+    html += action_items
     
     # Regular jobs summary
     if regular_jobs:
@@ -140,17 +229,40 @@ def create_jobs_csv(jobs: List[Dict]) -> str:
     """Create CSV string of jobs for attachment."""
     output = StringIO()
     writer = csv.writer(output)
+    jobs = sort_jobs_by_freshness(jobs)
 
     # Header
-    writer.writerow(['Company', 'Title', 'Location', 'Match Score', 'Source', 'URL', 'Date Found'])
+    writer.writerow([
+        'Company',
+        'Title',
+        'Location',
+        'Freshness',
+        'Posted Date',
+        'Contact Email',
+        'Match Score',
+        'Automation Status',
+        'Auto Promotion Reason',
+        'Source',
+        'Source Family',
+        'Query Profile',
+        'URL',
+        'Date Found',
+    ])
 
     for job in jobs:
         writer.writerow([
             job.get('company', 'Unknown'),
             job.get('title', 'Unknown'),
             job.get('location', ''),
+            freshness_badge_label(job.get('freshness_bucket', '')),
+            job.get('posted_date', job.get('date_posted', '')),
+            format_contact_emails(job.get('contact_emails', [])) or job.get('contact_email', ''),
             job.get('match_score', ''),
+            job.get('automation_status', ''),
+            job.get('auto_promotion_reason', ''),
             job.get('source', 'unknown'),
+            job.get('source_family', ''),
+            job.get('query_profile', ''),
             job.get('url', ''),
             datetime.now().strftime('%Y-%m-%d')
         ])
@@ -171,7 +283,7 @@ def send_hot_job_email(
         hot_jobs: List of hot job dicts with resume paths
         regular_jobs: List of regular job dicts
         stats: Pipeline statistics
-        attachments: List of {'path': str, 'filename': str} for resume attachments
+        attachments: List of generated resume and cover-letter attachments
 
     Returns:
         True if email sent successfully
@@ -185,7 +297,7 @@ def send_hot_job_email(
 
     # Build email
     msg = MIMEMultipart('mixed')
-    msg['Subject'] = f"🔥 {len(hot_jobs)} Hot Jobs + Resumes Ready - {datetime.now().strftime('%b %d, %I:%M %p')}"
+    msg['Subject'] = build_hot_job_email_subject(hot_jobs, regular_jobs)
     msg['From'] = email_config['sender_email']
     msg['To'] = email_config['recipient_email']
 
@@ -214,9 +326,13 @@ def send_hot_job_email(
     try:
         print(f"\n📧 Sending hot job notification to {email_config['recipient_email']}...")
         print(f"   🔥 Hot jobs: {len(hot_jobs)}")
-        print(f"   📎 Resume attachments: {len(attachments)}")
+        print(f"   📎 Generated attachments: {len(attachments)}")
 
-        with smtplib.SMTP(email_config['smtp_server'], email_config['smtp_port']) as server:
+        with smtplib.SMTP(
+            email_config['smtp_server'],
+            email_config['smtp_port'],
+            timeout=EMAIL_TIMEOUT_SECONDS,
+        ) as server:
             server.starttls()
             server.login(email_config['sender_email'], email_config['sender_password'])
             server.sendmail(

@@ -1,12 +1,5 @@
 #!/usr/bin/env python3
-"""
-Oracle HCM Scraper - Direct REST API Access for Oracle Fusion Cloud HCM
-
-Target employers: UC Health (migrated from Radancy to Oracle HCM)
-API Pattern: /hcmRestApi/resources/{version}/recruitingJobSitePostedJobs
-
-This reuses the pattern from Kroger's Oracle instance.
-"""
+"""Oracle HCM scraper for any verified Oracle HCM career sites in the repo."""
 
 import json
 import asyncio
@@ -16,42 +9,16 @@ from typing import Dict, List, Optional
 
 import httpx
 
-# Config paths
-CONFIG_FILE = Path(__file__).parent / "config.json"
-STATE_FILE = Path(__file__).parent / "job_state.json"
-
-EXCLUDE_TITLES = [
-    "senior staff", "staff engineer", "principal", "director", "vp",
-    "vice president", "lead architect", "head of", "chief",
-    "manager", "management",
-    "sales", "account executive", "account manager",
-    "business development", "customer success", "recruiter", "marketing",
-    "legal", "finance manager", "hr", "people operations",
-]
-
-EXCLUDE_LEAD_PREFIXES = ["lead "]
-
-
-def should_exclude_title(title: str) -> bool:
-    """Check if a job title should be excluded based on seniority/irrelevance."""
-    title_lower = title.lower()
-    if any(exc in title_lower for exc in EXCLUDE_TITLES):
-        return True
-    if any(title_lower.startswith(prefix) for prefix in EXCLUDE_LEAD_PREFIXES):
-        return True
-    return False
+from utils.state import load_config, load_state, save_state
+from utils.filters import should_keep_job
+from utils.pipeline_telemetry import record_source_rejection_reason
 
 # Oracle HCM endpoints - Cincinnati employers
 ORACLE_HCM_ENDPOINTS = {
     "uc_health": {
         "name": "UC Health",
-        "base_url": "https://eswt.fa.us6.oraclecloud.com",
-        "api_path": "/hcmRestApi/resources/11.13.18.05/recruitingJobSitePostedJobs",
-        "site_id": "CX_1001",  # UC Health candidate experience site
-        "priority": "HIGH",
-        "keywords": ["devops", "cloud", "engineer", "infrastructure", "platform", "sre", 
-                     "software", "systems", "network", "security", "data"],
-        "location_filter": "Cincinnati"  # Filter for Cincinnati-area jobs
+        "note": "UC Health uses Activate search pages and is handled by custom_scraper.py",
+        "skip": True
     },
     "kroger": {
         "name": "Kroger",
@@ -67,23 +34,6 @@ DEFAULT_HEADERS = {
     "Accept": "application/json",
     "Content-Type": "application/json",
 }
-
-
-def load_config() -> dict:
-    with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
-        return json.load(f)
-
-
-def load_state() -> dict:
-    if STATE_FILE.exists():
-        with open(STATE_FILE, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    return {"seen_jobs": {}}
-
-
-def save_state(state: dict):
-    with open(STATE_FILE, 'w', encoding='utf-8') as f:
-        json.dump(state, f, indent=2)
 
 
 async def fetch_oracle_hcm_jobs(endpoint_config: dict) -> Optional[List[dict]]:
@@ -172,7 +122,11 @@ async def search_oracle_hcm(endpoint_config: dict, search_term: str) -> Optional
             return None
 
 
-def parse_oracle_jobs(job_list: List[dict], endpoint_config: dict) -> List[Dict]:
+def parse_oracle_jobs(
+    job_list: List[dict],
+    endpoint_config: dict,
+    telemetry: Optional[Dict[str, dict]] = None,
+) -> List[Dict]:
     """
     Parse Oracle HCM job response into standardized format.
 
@@ -181,7 +135,6 @@ def parse_oracle_jobs(job_list: List[dict], endpoint_config: dict) -> List[Dict]
     """
     jobs = []
     keywords = [kw.lower() for kw in endpoint_config.get("keywords", [])]
-    location_filter = endpoint_config.get("location_filter", "").lower()
 
     for job_data in job_list:
         # Extract fields (Oracle uses various field names)
@@ -192,13 +145,15 @@ def parse_oracle_jobs(job_list: List[dict], endpoint_config: dict) -> List[Dict]
         # Filter by keywords in title
         title_lower = title.lower()
         if keywords and not any(kw in title_lower for kw in keywords):
+            record_source_rejection_reason(telemetry, "oracle", "non_target_title")
             continue
 
-        if should_exclude_title(title):
-            continue
-
-        # Filter by location if specified
-        if location_filter and location_filter not in location.lower():
+        if not should_keep_job(
+            title,
+            location=location,
+            telemetry=telemetry,
+            telemetry_source="oracle",
+        ):
             continue
 
         # Build job URL
@@ -221,7 +176,11 @@ def parse_oracle_jobs(job_list: List[dict], endpoint_config: dict) -> List[Dict]
     return jobs
 
 
-async def scrape_oracle_endpoint(endpoint_key: str, endpoint_config: dict) -> List[Dict]:
+async def scrape_oracle_endpoint(
+    endpoint_key: str,
+    endpoint_config: dict,
+    telemetry: Optional[Dict[str, dict]] = None,
+) -> List[Dict]:
     """Scrape a single Oracle HCM endpoint."""
     if endpoint_config.get("skip"):
         return []
@@ -234,12 +193,15 @@ async def scrape_oracle_endpoint(endpoint_key: str, endpoint_config: dict) -> Li
         print(f"  ❌ Failed to fetch data from {endpoint_config['name']}")
         return []
 
-    jobs = parse_oracle_jobs(job_list, endpoint_config)
+    jobs = parse_oracle_jobs(job_list, endpoint_config, telemetry=telemetry)
     print(f"  ✅ Found {len(jobs)} matching jobs")
     return jobs
 
 
-async def run_oracle_hcm_scrape(dry_run: bool = False) -> List[Dict]:
+async def run_oracle_hcm_scrape(
+    dry_run: bool = False,
+    telemetry: Optional[Dict[str, dict]] = None,
+) -> List[Dict]:
     """
     Run scraper for all configured Oracle HCM endpoints.
 
@@ -262,7 +224,7 @@ async def run_oracle_hcm_scrape(dry_run: bool = False) -> List[Dict]:
             print(f"  [DRY RUN] Would scrape: {endpoint_config['name']}")
             continue
 
-        jobs = await scrape_oracle_endpoint(endpoint_key, endpoint_config)
+        jobs = await scrape_oracle_endpoint(endpoint_key, endpoint_config, telemetry=telemetry)
         all_jobs.extend(jobs)
 
         # Check for new jobs

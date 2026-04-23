@@ -1,0 +1,14 @@
+{
+  "scriptFile": "__init__.py",
+  "entryPoint": "main",
+  "bindings": [
+    {
+      "name": "timer",
+      "type": "timerTrigger",
+      "direction": "in",
+      "schedule": "%ATS_SNIPER_MONITOR_MORNING_CRON%",
+      "runOnStartup": false,
+      "useMonitor": true
+    }
+  ]
+}

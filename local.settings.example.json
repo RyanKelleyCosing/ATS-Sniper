@@ -1,0 +1,18 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "python",
+    "AzureWebJobsFeatureFlags": "EnableWorkerIndexing",
+    "PYTHONUTF8": "1",
+    "ATS_SNIPER_RUNTIME_DIR": ".azure-data",
+    "ATS_SNIPER_STATE_PATH": ".azure-data/job_state.json",
+    "ATS_SNIPER_SKIP_TASK_SCHEDULER_CHECKS": "true",
+    "ATS_SNIPER_SKIP_TAILOR": "true",
+    "ATS_SNIPER_DISABLE_CUSTOM_SCRAPER": "true",
+    "ATS_SNIPER_MORNING_CRON": "0 30 13 * * *",
+    "ATS_SNIPER_AFTERNOON_CRON": "0 30 20 * * *",
+    "ATS_SNIPER_MONITOR_MORNING_CRON": "0 15 15 * * *",
+    "ATS_SNIPER_MONITOR_AFTERNOON_CRON": "0 45 21 * * *"
+  }
+}

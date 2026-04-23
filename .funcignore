@@ -1,0 +1,13 @@
+.git*
+.venv/
+.pytest_cache/
+__pycache__/
+outputs/
+reports/
+cover_letters/
+config.json
+local.settings.json
+job_state.json
+job_state_backup.json
+azure_run_package.zip
+tests/

@@ -11,9 +11,12 @@ Tests the core flow:
 import sys
 from pathlib import Path
 
-# Add script dir to path
-SCRIPT_DIR = Path(__file__).parent
-sys.path.insert(0, str(SCRIPT_DIR))
+# Add repo root to path.
+ROOT_DIR = Path(__file__).resolve().parent
+while not (ROOT_DIR / "generate_tailored_resume.py").exists() and ROOT_DIR != ROOT_DIR.parent:
+    ROOT_DIR = ROOT_DIR.parent
+
+sys.path.insert(0, str(ROOT_DIR))
 
 from generate_tailored_resume import generate_tailored_resume_for_job
 

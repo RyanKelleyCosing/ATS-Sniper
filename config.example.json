@@ -14,13 +14,98 @@
   "schedules": {
     "morning": {
       "time": "09:30",
-      "description": "Enterprise Hunt - Catches overnight + early morning batch",
-      "query_groups": ["enterprise_workday", "enterprise_consulting", "cincy_regional"]
+      "description": "Broad morning sweep across enterprise, startup ATS, and gap-filling web discovery",
+      "query_groups": ["enterprise_workday", "enterprise_other", "enterprise_consulting", "startup_ats", "cincy_regional"]
     },
     "afternoon": {
       "time": "16:30",
       "description": "Startup Sweep - Catches EOD posts + West Coast morning",
       "query_groups": ["startup_ats", "niche_boards"]
+    },
+    "lightweight": {
+      "times": ["11:30", "14:30", "18:30"],
+      "description": "Freshness-first pass for direct APIs and web discovery between full runs",
+      "query_groups": ["enterprise_workday", "enterprise_other", "startup_ats", "cincy_regional"]
+    },
+    "fresh_watch": {
+      "start_time": "10:35",
+      "end_time": "16:15",
+      "interval_minutes": 10,
+      "description": "10-minute web-only fresh-watch bridge between morning and afternoon runs"
+    }
+  },
+  "startup_discovery": {
+    "enabled": true,
+    "max_queries": 5,
+    "max_results_per_query": 8,
+    "include_adjacent_roles": true,
+    "google_query_terms": ["careers at", "careers", "open roles", "open positions", "We're hiring"],
+    "allowed_run_types": ["morning", "afternoon", "full", "lightweight", "fresh_watch"]
+  },
+  "jobspy_discovery": {
+    "enabled": false,
+    "run_types": ["morning", "afternoon", "full"],
+    "site_name": ["indeed", "google"],
+    "location": "United States",
+    "hours_old": 24,
+    "results_wanted": 14,
+    "results_per_search_term": 2,
+    "country_indeed": "USA",
+    "is_remote": true,
+    "search_term": "",
+    "include_adjacent_roles": false,
+    "max_search_terms": 14,
+    "adjacent_max_search_terms": 4,
+    "search_terms": [
+      "application security engineer",
+      "cloud security engineer",
+      "iam engineer",
+      "devops engineer",
+      "site reliability engineer",
+      "platform engineer",
+      "cloud platform engineer",
+      "azure platform engineer",
+      "azure infrastructure engineer",
+      "cloud operations engineer",
+      "security operations engineer",
+      "azure iam engineer",
+      "aks engineer",
+      "cloud sre",
+      "devsecops engineer"
+    ]
+  },
+  "fresh_watch": {
+    "enabled": true,
+    "max_queries": 4,
+    "max_results_per_query": 8,
+    "min_discovery_confidence": 72,
+    "alert_min_discovery_confidence": 82,
+    "alert_max_age_hours": 1.0,
+    "max_alert_jobs": 5,
+    "send_email_alerts": true,
+    "history_limit": 144,
+    "enable_adjacent_jobspy": true,
+    "adjacent_jobspy_max_search_terms": 6,
+    "adjacent_jobspy_results_per_search_term": 2
+  },
+  "freshness": {
+    "under_6_hours": 6,
+    "under_24_hours": 24,
+    "lightweight_run_types": ["lightweight"],
+    "lightweight_custom_scrapers": ["activate_api", "successfactors_rss", "peopleadmin_atom", "phenom_search"]
+  },
+  "monitoring": {
+    "enabled": true,
+    "send_no_jobs_email": true,
+    "send_failure_email": true,
+    "send_monitor_alerts": true,
+    "grace_minutes": {
+      "morning": 120,
+      "afternoon": 90
+    },
+    "alert_times": {
+      "morning": "11:15",
+      "afternoon": "17:45"
     }
   },
   "workday_endpoints": {
@@ -35,6 +120,10 @@
     "fifth_third": {
       "name": "Fifth Third Bank",
       "url": "https://fifththird.wd5.myworkdayjobs.com/wday/cxs/fifththird/53careers/jobs"
+    },
+    "first_financial_bank": {
+      "name": "First Financial Bank",
+      "url": "https://bankatfirst.wd1.myworkdayjobs.com/wday/cxs/bankatfirst/FFB/jobs"
     },
     "fidelity": {
       "name": "Fidelity Investments",
@@ -52,9 +141,21 @@
       "name": "CVS Health",
       "url": "https://cvshealth.wd1.myworkdayjobs.com/wday/cxs/cvshealth/CVS_Health_Careers/jobs"
     },
+    "miami_university": {
+      "name": "Miami University",
+      "url": "https://miamioh.wd5.myworkdayjobs.com/wday/cxs/miamioh/miamioh-staff/jobs"
+    },
     "worldpay": {
       "name": "Worldpay",
       "url": "https://worldpay.wd5.myworkdayjobs.com/wday/cxs/worldpay/Worldpay_External_Careers_Site/jobs"
+    },
+    "leidos": {
+      "name": "Leidos",
+      "url": "https://leidos.wd5.myworkdayjobs.com/wday/cxs/leidos/external/jobs"
+    },
+    "mercy_health": {
+      "name": "Mercy Health",
+      "url": "https://easyservice.wd5.myworkdayjobs.com/wday/cxs/easyservice/MercyHealthCareers/jobs"
     },
     "bon_secours": {
       "name": "Bon Secours Mercy Health",
@@ -95,6 +196,56 @@
       "url": "https://www.kinetic-vision.com/careers",
       "type": "custom",
       "note": "DevOps/Cloud for simulation teams"
+    },
+    "nku": {
+      "name": "Northern Kentucky University",
+      "url": "https://jobs.nku.edu",
+      "type": "peopleadmin_atom",
+      "note": "PeopleAdmin Atom feed for IT/security roles"
+    },
+    "city_of_cincinnati": {
+      "name": "City of Cincinnati",
+      "url": "https://www.governmentjobs.com/careers/cincinnati",
+      "type": "neogov_rendered",
+      "note": "Rendered NEOGOV board for local municipal IT and infrastructure roles"
+      },
+      "university_of_cincinnati": {
+        "name": "University of Cincinnati",
+        "url": "https://jobs.uc.edu",
+        "type": "successfactors_rss",
+        "note": "SuccessFactors RSS feed for Cincinnati IT/security roles"
+      },
+      "uc_health": {
+        "name": "UC Health",
+        "url": "https://careers.uchealth.com/search/searchjobs",
+        "type": "activate",
+        "note": "Activate SearchResults API for Cincinnati healthcare IT roles"
+      },
+      "trihealth": {
+        "name": "TriHealth",
+        "url": "https://careers.trihealth.com/search/searchjobs",
+        "type": "activate",
+        "note": "Activate SearchResults API for regional healthcare IT roles"
+      },
+      "cardinal_health": {
+        "name": "Cardinal Health",
+        "url": "https://jobs.cardinalhealth.com/search/jobs",
+        "type": "activate",
+        "priority": "HIGH",
+        "note": "Activate SearchResults API for US security, IAM, cloud, platform, and adjacent data or AI roles"
+      },
+      "atsg": {
+        "name": "ATSG",
+        "url": "https://careers.atsginc.com/us/en/search-results",
+        "type": "phenom",
+        "priority": "HIGH",
+        "note": "Phenom-hosted board for Wilmington-area security, systems, data, and IT roles"
+      },
+      "christ_hospital": {
+        "name": "The Christ Hospital",
+        "url": "https://careers.thechristhospital.com/search/searchjobs",
+        "type": "activate",
+        "note": "Activate SearchResults API for regional healthcare IT roles"
     }
   },
   "query_groups": {
@@ -110,10 +261,14 @@
         "pg.wd5.myworkdayjobs.com",
         "geaerospace.wd5.myworkdayjobs.com",
         "fifththird.wd5.myworkdayjobs.com",
+        "bankatfirst.wd1.myworkdayjobs.com",
         "fmr.wd1.myworkdayjobs.com",
         "cincinnatichildrens.wd5.myworkdayjobs.com",
+        "easyservice.wd5.myworkdayjobs.com",
+        "miamioh.wd5.myworkdayjobs.com",
         "gaig.wd1.myworkdayjobs.com",
-        "cvshealth.wd1.myworkdayjobs.com"
+        "cvshealth.wd1.myworkdayjobs.com",
+        "leidos.wd5.myworkdayjobs.com"
       ]
     },
     "enterprise_other": {
@@ -123,6 +278,12 @@
         "careers-westernsouthern.icims.com",
         "jobs.kroger.com",
         "careers.medpace.com",
+        "jobs.nku.edu",
+        "governmentjobs.com/careers/cincinnati",
+        "jobs.uc.edu",
+        "careers.uchealth.com",
+        "careers.trihealth.com",
+        "careers.thechristhospital.com",
         "macys.taleo.net",
         "careers.cintas.com",
         "careers.tql.com",
@@ -145,7 +306,14 @@
       "sites": [
         "boards.greenhouse.io/8451",
         "boards.greenhouse.io/array",
-        "boards.greenhouse.io/patientpoint"
+        "boards.greenhouse.io/patientpoint",
+        "jobs.nku.edu",
+        "governmentjobs.com/careers/cincinnati",
+        "jobs.uc.edu",
+        "careers.uchealth.com",
+        "careers.trihealth.com",
+        "careers.thechristhospital.com",
+        "careers-westernsouthern.icims.com"
       ]
     },
     "niche_boards": {
@@ -157,36 +325,40 @@
   "role_groups": {
     "core_ops": [
       "DevOps Engineer", "Senior DevOps Engineer", "DevOps Specialist",
-      "Site Reliability Engineer", "Senior Site Reliability Engineer", "Staff SRE", "Principal SRE", "SRE",
-      "Platform Engineer", "Cloud Platform Engineer", "Senior Platform Engineer",
+      "Site Reliability Engineer", "Senior Site Reliability Engineer", "Staff SRE", "Principal SRE", "SRE", "Cloud SRE",
+      "Platform Engineer", "Cloud Platform Engineer", "Azure Platform Engineer", "Senior Platform Engineer",
       "Production Engineer", "Automation Engineer", "Infrastructure Automation Engineer"
     ],
     "core_infra": [
-      "Cloud Engineer", "Senior Cloud Engineer", "Azure Cloud Engineer", "Senior Azure Cloud Engineer", "Azure Infrastructure Engineer",
+      "Cloud Engineer", "Senior Cloud Engineer", "Azure Cloud Engineer", "Senior Azure Cloud Engineer", "Azure Infrastructure Engineer", "AKS Engineer",
       "Infrastructure Engineer", "Senior Infrastructure Engineer", "Cloud Infrastructure Engineer",
       "Systems Engineer", "Senior Systems Engineer", "IT Systems Engineer", "Infrastructure Systems Engineer",
       "Cloud Operations Engineer", "Cloud Ops Engineer",
       "Cloud Architect", "Solutions Architect", "Azure DevOps Engineer"
     ],
-    "ai_ml": ["MLOps Engineer", "ML Platform Engineer", "AI Infrastructure Engineer", "GPU Cloud Engineer", "AI Platform Engineer"],
+    "ai_ml": ["MLOps Engineer", "ML Platform Engineer", "AI Engineer", "AI Infrastructure Engineer", "GPU Cloud Engineer", "AI Platform Engineer"],
     "finops": ["FinOps Engineer", "Cloud Cost Engineer", "Cost Optimization Engineer", "Cloud Governance Engineer"],
     "devex": ["Developer Experience Engineer", "DevEx Engineer", "Internal Developer Platform", "IDP Engineer"],
     "security": ["DevSecOps Engineer", "Cloud Security Engineer", "Infrastructure Security Engineer", "Security Engineer", "SecOps Engineer"]
   },
   "location_filters": [
-    "Remote", "Cincinnati", "Ohio", "Dayton", "Columbus", "Indianapolis", "Louisville", "Hybrid",
-    "Blue Ash", "Mason", "West Chester", "Evendale", "Covington", "Union Township", "Springdale", "Fairfield",
-    "Kenwood", "Norwood", "Sharonville", "Montgomery", "Florence", "Fort Mitchell", "Milford", "Loveland"
+    "Remote", "Hybrid", "Cincinnati",
+    "Blue Ash", "Mason", "West Chester", "Evendale", "Covington", "Union Township", "Springdale", "Fairfield", "Hamilton",
+    "Kenwood", "Norwood", "Sharonville", "Montgomery", "Florence", "Fort Mitchell", "Milford", "Loveland",
+    "Newport", "Erlanger", "Crestview Hills", "Highland Heights"
   ],
   "company_tiers": {
     "enterprise": [
       "myworkdayjobs.com", "pg.wd", "geaerospace", "fiftythird", "kroger.wd",
       "westernsouthern", "worldpay", "medpace", "fidelity", "cintas",
+      "bankatfirst", "easyservice", "mercyhealthcareers",
+      "miamioh.wd5.myworkdayjobs.com",
+      "jobs.uc.edu", "careers.uchealth.com", "careers.trihealth.com", "careers.thechristhospital.com",
       "cchmc", "cinfin", "macys", "essilorluxottica", "gaig", "tql",
       "deloitte", "pwc.wd", "capgemini"
     ],
     "startup": ["boards.greenhouse.io", "jobs.lever.co", "apply.workable.com", "jobs.ashbyhq.com"],
-    "cincy_regional": ["8451", "array", "patientpoint"],
+    "cincy_regional": ["8451", "array", "patientpoint", "jobs.nku.edu", "governmentjobs.com/careers/cincinnati"],
     "niche": ["wellfound.com", "workatastartup.com", "otta"]
   },
   "exclude_keywords": [
@@ -245,6 +417,61 @@
       "name": "Root Insurance",
       "board_token": "rootinsurance",
       "priority": "MEDIUM"
+    },
+    "vannevarlabs": {
+      "name": "Vannevar Labs",
+      "board_token": "vannevarlabs",
+      "priority": "HIGH"
+    },
+    "axle": {
+      "name": "Axle",
+      "board_token": "axle",
+      "priority": "MEDIUM"
+    },
+    "seisandbox": {
+      "name": "SEI",
+      "board_token": "seisandbox",
+      "priority": "MEDIUM"
+    },
+    "gametime": {
+      "name": "Gametime",
+      "board_token": "gametimeunited",
+      "priority": "HIGH"
+    },
+    "stitchfix": {
+      "name": "Stitch Fix",
+      "board_token": "204951305985924",
+      "priority": "MEDIUM"
+    },
+    "chainguard": {
+      "name": "Chainguard",
+      "board_token": "chainguard",
+      "priority": "HIGH"
+    },
+    "affirm": {
+      "name": "Affirm",
+      "board_token": "affirm",
+      "priority": "MEDIUM"
+    },
+    "sofi": {
+      "name": "SoFi",
+      "board_token": "sofi",
+      "priority": "MEDIUM"
+    },
+    "chime": {
+      "name": "Chime",
+      "board_token": "chime",
+      "priority": "MEDIUM"
+    },
+    "robinhood": {
+      "name": "Robinhood",
+      "board_token": "robinhood",
+      "priority": "MEDIUM"
+    },
+    "stripe": {
+      "name": "Stripe",
+      "board_token": "stripe",
+      "priority": "MEDIUM"
     }
   },
   "lever_endpoints": {
@@ -262,6 +489,51 @@
       "name": "Spotify",
       "company_slug": "spotify",
       "priority": "MEDIUM"
+    },
+    "workwave": {
+      "name": "WorkWave",
+      "company_slug": "workwave",
+      "priority": "HIGH"
+    },
+    "palantir": {
+      "name": "Palantir",
+      "company_slug": "palantir",
+      "priority": "MEDIUM"
+    },
+    "moonpay": {
+      "name": "MoonPay",
+      "company_slug": "moonpay",
+      "priority": "HIGH"
+    }
+  },
+  "ashby_endpoints": {
+    "homevision": {
+      "name": "HomeVision",
+      "company_slug": "homevision",
+      "priority": "HIGH"
+    },
+    "leantechniques": {
+      "name": "Lean TECHniques",
+      "company_slug": "leantechniques",
+      "priority": "HIGH",
+      "allow_global_remote": true
+    }
+  },
+  "icims_endpoints": {
+    "western_southern": {
+      "name": "Western & Southern Financial Group",
+      "base_url": "https://careers-westernsouthern.icims.com",
+      "json_url": "https://careers-westernsouthern.icims.com/jobs/search?mode=json",
+      "priority": "HIGH",
+      "keywords": ["devops", "cloud", "engineer", "infrastructure", "platform", "sre", "software"]
+    },
+    "medical_solutions": {
+      "name": "Medical Solutions",
+      "base_url": "https://careers-medicalsolutions.icims.com",
+      "json_url": "https://careers-medicalsolutions.icims.com/jobs/search?mode=json",
+      "search_url": "https://careers-medicalsolutions.icims.com/jobs/search?in_iframe=1",
+      "priority": "HIGH",
+      "keywords": ["devops", "cloud", "engineer", "infrastructure", "platform", "sre", "software"]
     }
   },
   "settings": {
@@ -270,6 +542,28 @@
     "dedup_window_days": 30,
     "hot_badge_hours": 6,
     "openai_model": "gpt-4o-mini",
+    "early_classifier_enabled": true,
+    "early_classifier_model": "gpt-4o-mini",
+    "phase6_daily_relevant_jobs_target": 3,
+    "phase6_min_generated_packages_per_day": 3,
+    "phase6_high_confidence_match_floor": 90,
+    "phase6_exact_fit_strong_fit_floor": 75,
+    "phase6_adjacent_strong_fit_floor": 82,
+    "phase6_auto_promote_enabled": true,
+    "phase6_auto_promote_match_floor": 80,
+    "phase6_exact_fit_auto_promote_match_floor": 75,
+    "phase6_exact_fit_signal_floor": 5,
+    "phase6_adjacent_auto_promote_match_floor": 88,
+    "phase6_adjacent_signal_floor": 5,
+    "phase6_auto_promote_screening_confidence": 0.85,
+    "phase6_auto_promote_discovery_confidence": 70,
+    "phase6_auto_promote_freshness_buckets": ["fresh_under_6h", "fresh_under_24h"],
+    "lever_board_health_enabled": true,
+    "lever_board_health_downgrade_after_failures": 2,
+    "lever_board_health_disable_after_failures": 3,
+    "lever_board_health_disable_hours": 168,
+    "application_package_model": "gpt-5.4",
+    "tailor_batch_model": "gpt-5.4",
     "openai_max_tokens": 2000
   }
 }
